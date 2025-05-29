@@ -91,9 +91,10 @@ def segment_distinct_masks(image_path: str,
     Segment an image with SAM, take the largest top_n regions,
     and filter out duplicates by IoU, returning up to max_masks masks.
     """
-    model = SAM(model_path)
-    model.to("cuda")
-    results = model(image_path)[0]
+    model = SAM(model_path).to("cuda")
+
+    results = model(image_path)[0]  # ✅ usar path, no tensor
+
 
 
 
@@ -130,6 +131,12 @@ def segment_distinct_masks(image_path: str,
     mascaras_sort = new_sort_masks(mascaras_finales)
 
     return mascaras_sort[0:len_mask]
+
+
+
+
+
+
 
 def filtrar_solapamientos_inclusivos(mascaras):
     final = []
@@ -426,6 +433,18 @@ def dividir_mascara(mask_tensor,rgb, min_area=3000):
 
 
 
+def ImgConfirmation(dims, longitud_min, umbral=0.5):
+    if len(dims) != longitud_min:
+        return False
+    list_res = []
+    for (w,h,_,_,_) in dims:
+        list_res.append(w/h)
+    for i in range(len(list_res)):
+        for j in range(i+1, len(list_res)):
+            if abs(list_res[i] - list_res[j]) > umbral:
+                return False
+
+    return True      
 
 def segment_all_masks(image_path: str,
                             model_path: str,
@@ -528,7 +547,7 @@ def center_pallet(mask_total, rgb):    # Asegurarse de que la máscara sea binar
 def main_centros_pallet():
     # Paths and parameters
     image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
-    model_path = r"mobile_sam.pt"
+    model_path = r"sam2.1_l.pt"
     overlay_out = r"overlay_bolsas_centros.png"
     centers_out = r"D:/CIRAL/VISION/ftp_ck/images/centros_corregidos.jpg"
 
@@ -584,7 +603,7 @@ def main():
     # Paths and parameters
     time.sleep(0.5)
     image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
-    model_path = r"mobile_sam.pt"
+    model_path = r"sam2.1_l.pt"
     overlay_out = r"overlay_bolsas.png"
     centers_out = r"D:/CIRAL/VISION/ftp_ck/images/centros_corregidos.jpg"
 

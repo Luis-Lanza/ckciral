@@ -16,6 +16,7 @@ class DataPoint(BaseModel):
     y: float
     angle: float
     diff_angle: float
+    confirmation: bool
 class DataCenter(BaseModel):
     x: float
     y: float
@@ -32,6 +33,10 @@ def get_puntos_bolsas():
     cliente.download_with_custom_key()
     # 1) Segmentación y cálculo de dimensiones (tu función existing)
     dims = image_process.main()  # [(w,h,cx,cy,angle), ...]
+
+    conf = image_process.ImgConfirmation(dims, 5,0.5)
+
+
     global dims_global
     dims_global = dims
 
@@ -56,8 +61,8 @@ def get_puntos_bolsas():
             x=x,
             y=y,
             angle=angle,
-            diff_angle=diff_angle
-
+            diff_angle=diff_angle,
+            confirmation= conf
         ))
     print("points ====== ",points)
     return points
