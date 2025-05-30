@@ -34,7 +34,7 @@ def get_puntos_bolsas():
     # 1) Segmentación y cálculo de dimensiones (tu función existing)
     dims = image_process.main()  # [(w,h,cx,cy,angle), ...]
 
-    conf = image_process.ImgConfirmation(dims, 5,0.5)
+    conf = image_process.ImgConfirmation(dims, 5,0.2)
 
 
     global dims_global
