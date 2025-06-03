@@ -2,7 +2,7 @@ def transf_px_mm(dims,w_mm,h_mm,desfase_cam):
 
   centers = []
   new_dims = []
-  print(dims)
+  #print(dims)
   for i in dims:
     centers.append((i[2],i[3]))
     new_dims.append((i[0],i[1]))
@@ -25,15 +25,15 @@ def diferencia_angles(dims):
     for i in dims:
       angles.append(i[4])
 
-    print("angles ===== ",angles)
+    #print("angles ===== ",angles)
 
     dif_angles = []
     for a in angles:
       if a<200 and a>160:
-        print("a ", a)
+        #print("a ", a)
         dif_angles.append((90,a-180))
       elif a<110 and a>70:
-        print("a ", a)
+        #print("a ", a)
         dif_angles.append((0,a-90))
       elif a>-20 and a<20:
         dif_angles.append((90,a))

@@ -75,8 +75,8 @@ import paramiko
 import subprocess
 from pathlib import Path
 
-KEY_PATH = "C:/ciral"  # ruta a tu clave privada
-HOST = "10.147.20.134"
+KEY_PATH = "C:/Users/KINGDOM/ciral"  # ruta a tu clave privada
+HOST = "172.19.69.246"
 USER = "LabCkCiral"
 REMOTE_FILE = "/home/LabCkCiral/ftp_server/images/imgSend.jpg"
 LOCAL_DIR = Path("D:/CIRAL/VISION/ftp_images")

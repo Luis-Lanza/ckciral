@@ -1,10 +1,13 @@
 import time
 import numpy as np
-from ultralytics import SAM
+from ultralytics import SAM,FastSAM
 from PIL import Image
 import cv2
 from pathlib import Path
 import torch
+import itertools
+
+
 
 
 def RestaMascaras(masks):
@@ -81,21 +84,23 @@ def mask_iou(m1, m2):
 
 
 def segment_distinct_masks(image_path: str,
-                            model_path: str,
+                            model,
                             top_n: int = 20,
                             max_masks: int = 5,
-                            len_mask: int = 5,
-                            iou_thresh: float = 0.5
+                            cantidad_bolsas: int= 5,
+                            umbral_mascaras: int= 5,                            
                             ):
     """
     Segment an image with SAM, take the largest top_n regions,
     and filter out duplicates by IoU, returning up to max_masks masks.
     """
-    model = SAM(model_path).to("cuda")
+    
+    #model = FastSAM(model_path).to("cuda")
 
-    results = model(image_path)[0]  # ✅ usar path, no tensor
+    #results = model(image_path)[0]  # ✅ usar path, no tensor
+    results = model(image_path, device='cuda', retina_masks=True)[0]
 
-
+  
 
 
     all_masks = results.masks.data
@@ -103,7 +108,8 @@ def segment_distinct_masks(image_path: str,
     # Sort masks by area descending
     areas = [m.sum().item() for m in all_masks]
     idxs = np.argsort(areas)[::-1][:top_n]
-    
+    mascaras_sort = new_sort_masks(all_masks)
+    masks = [m for m in mascaras_sort if m.sum().item()<2000000 ]
     distinct_masks = []
     # for i in idxs:
     #     m = all_masks[i]
@@ -115,8 +121,9 @@ def segment_distinct_masks(image_path: str,
     img = Image.open(image_path).convert("RGB")
     rgb = np.array(img)
 
-    for i in idxs:
-        m = all_masks[i]
+    #for i in idxs:
+    for i in range(len(masks)):
+        m = masks[i]
         subdivididas = dividir_mascara(m,rgb)
         for subm in subdivididas:
             if all(mask_iou(subm, dm) < 0.5 for dm in distinct_masks):
@@ -127,45 +134,54 @@ def segment_distinct_masks(image_path: str,
             break
     
 
-    mascaras_finales = dividir_mascaras_grandes(distinct_masks, rgb)   
-    mascaras_sort = new_sort_masks(mascaras_finales)
+    #mascaras_finales = dividir_mascaras_grandes(distinct_masks, rgb)   
+    #mascaras_sort = new_sort_masks(distinct_masks) 
+    areas = [m.sum().item() for m in mascaras_sort[:umbral_mascaras]]
+    #mascaras_filtradas = filtro_por_similitud_area(mascaras_sort[:7], tolerancia=1000)
+    best_group_indices,_ = find_most_similar_group(areas, group_size=cantidad_bolsas)
+    masks_b = []
+    for i in best_group_indices:
+        masks_b.append(mascaras_sort[i])
+    # t_esdm = time.time()
+    # print("time segme d mask :::::::::", t_sdm-t_esdm)
+    # #return mascaras_filtradas
 
-    return mascaras_sort[0:len_mask]
+    # return mascaras_sort[:len_mask]
+    return masks_b
+
+
+def find_most_similar_group(aspect_ratios, group_size=5):
+    """
+    Encuentra el grupo de 'group_size' aspect ratios más parecidos.
+    
+    Retorna:
+    - indices: lista de índices de los aspect ratios del grupo más parecido
+    - valores: lista de valores de esos aspect ratios
+    - diferencia: diferencia máxima dentro del grupo
+    """
+    best_group_indices = None
+    min_max_diff = float('inf')
+
+    # Enumerar aspect ratios con índices
+    indexed_ratios = list(enumerate(aspect_ratios))
+
+    # Probar todas las combinaciones posibles de índices
+    for combo in itertools.combinations(indexed_ratios, group_size):
+        # Obtener solo los valores
+        values = [x[1] for x in combo]
+        indices = [x[0] for x in combo]
+
+        max_diff = max(values) - min(values)
+        if max_diff < min_max_diff:
+            min_max_diff = max_diff
+            best_group_indices = indices
+            best_group_values = values
+
+    return best_group_indices,best_group_values
 
 
 
 
-
-
-
-def filtrar_solapamientos_inclusivos(mascaras):
-    final = []
-
-    # Ordenar por área descendente (primero máscaras más grandes)
-    sorted_masks = sorted(mascaras, key=lambda m: m.sum().item(), reverse=True)
-
-    for i, m in enumerate(sorted_masks):
-        # Bounding box actual
-        m_np = m.cpu().numpy().astype(np.uint8)
-        x1, y1, w1, h1 = cv2.boundingRect(m_np)
-        rect_m = (x1, y1, x1 + w1, y1 + h1)
-
-        # Verificar que no contiene a ninguna ya aceptada
-        contiene = False
-        for kept in final:
-            k_np = kept.cpu().numpy().astype(np.uint8)
-            x2, y2, w2, h2 = cv2.boundingRect(k_np)
-            rect_k = (x2, y2, x2 + w2, y2 + h2)
-
-            # Si la máscara actual contiene completamente a otra ya aceptada
-            if rect_m[0] <= rect_k[0] and rect_m[1] <= rect_k[1] and rect_m[2] >= rect_k[2] and rect_m[3] >= rect_k[3]:
-                contiene = True
-                break
-
-        if not contiene:
-            final.append(m)
-
-    return final
 
 # Paso adicional: redividir máscaras sospechosas por tamaño
 def dividir_mascaras_grandes(mascaras, rgb, max_area_px=140000, objetivo=6):
@@ -175,7 +191,7 @@ def dividir_mascaras_grandes(mascaras, rgb, max_area_px=140000, objetivo=6):
         area = m.sum().item()
 
         if area > max_area_px:
-            print("⚠️ Máscara grande detectada. Reaplicando watershed...")
+            #print("⚠️ Máscara grande detectada. Reaplicando watershed...")
 
             # Redividir
             nuevas = dividir_mascara(m, rgb)
@@ -221,33 +237,6 @@ def mejor_mascara(m1, m2):
     else:
         return m1 if area1 >= area2 else m2
 
-# def overlay_masks(image_path: str,
-#                 masks,
-#                 colors: np.ndarray,
-#                 output_path: str):
-#     """
-#     Overlay each mask on the image with semi-transparent colors and save result.
-#     """
-#     img = Image.open(image_path).convert("RGB")
-#     rgb = np.array(img)
-#     overlay = rgb.astype(np.float32)
-
-#     for mask, color in zip(masks, colors):
-#         # Asegurar que la máscara sea (H, W) y tipo booleano
-#         m = mask.cpu().numpy().astype(bool)
-#         if isinstance(m, np.ndarray) and m.ndim == 3:
-#             m = m[0]  # o usar np.squeeze(m) si viene con (1, H, W)
-#         m = m.astype(bool)
-
-#         # Aplicar color donde la máscara es True
-#         for c in range(3):
-#             overlay[:, :, c][m] = overlay[:, :, c][m] * 0.5 + color[c] * 0.5
-
-#     overlay = overlay.astype(np.uint8)
-#     out = Path(output_path)
-#     Image.fromarray(overlay).save(out)
-#     print(f"Overlay saved to {out}")
-    
 def overlay_masks(image_path: str,
                     masks,
                     colors: np.ndarray,
@@ -266,35 +255,7 @@ def overlay_masks(image_path: str,
     overlay = overlay.astype(np.uint8)
     out = Path(output_path)
     Image.fromarray(overlay).save(out)
-    print(f"Overlay saved to {out}")
-
-# def overlay_masks(image_path: str,
-#                 masks,
-#                 colors: np.ndarray,
-#                 output_path: str):
-#     """
-#     Overlay each mask on the image with semi-transparent colors and save result.
-#     """
-#     img = Image.open(image_path).convert("RGB")
-#     rgb = np.array(img)
-#     overlay = rgb.astype(np.float32)
-
-#     for mask, color in zip(masks, colors):
-#         # Asegurar que la máscara sea (H, W) y tipo booleano
-#         m = mask
-#         if isinstance(m, np.ndarray) and m.ndim == 3:
-#             m = m[0]  # o usar np.squeeze(m) si viene con (1, H, W)
-#         m = m.astype(bool)
-
-#         # Aplicar color donde la máscara es True
-#         for c in range(3):
-#             overlay[:, :, c][m] = overlay[:, :, c][m] * 0.5 + color[c] * 0.5
-
-#     overlay = overlay.astype(np.uint8)
-#     out = Path(output_path)
-#     Image.fromarray(overlay).save(out)
-#     print(f"Overlay saved to {out}")
-
+    #print(f"Overlay saved to {out}")
 
 def compute_dims_centers_angles(masks):
     """
@@ -331,35 +292,6 @@ def compute_dims_centers_angles(masks):
     return results
 
 
-# def dividir_mascara(mask_tensor, min_area=20000):
-#     mask = mask_tensor.cpu().numpy().astype(np.uint8) * 255
-#     if cv2.countNonZero(mask) < min_area:
-#         return [mask_tensor]
-
-#     # Distance transform
-#     dist_transform = cv2.distanceTransform(mask, cv2.DIST_L2, 5)
-#     _, sure_fg = cv2.threshold(dist_transform, 0.75 * dist_transform.max(), 255, 0)
-#     sure_fg = np.uint8(sure_fg)
-#     unknown = cv2.subtract(mask, sure_fg)
-
-#     # Markers
-#     _, markers = cv2.connectedComponents(sure_fg)
-#     markers = markers + 1
-#     markers[unknown == 255] = 0
-
-#     # Watershed
-#     mask_color = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-#     markers = cv2.watershed(mask_color, markers)
-
-#     # Extrae nuevas máscaras
-#     nuevas_masks = []
-#     for label in np.unique(markers):
-#         if label <= 1:
-#             continue
-#         nueva = (markers == label).astype(np.uint8)
-#         if nueva.sum() > 3000:
-#             nuevas_masks.append(torch.tensor(nueva, device=mask_tensor.device))
-#     return nuevas_masks
 def indices_mayores(lista):
     """
     Devuelve una lista de tuplas (índice, valor) ordenadas por valor descendente.
@@ -447,7 +379,7 @@ def ImgConfirmation(dims, longitud_min, umbral=0.5):
     return True      
 
 def segment_all_masks(image_path: str,
-                            model_path: str,
+                            model,
                             top_n: int = 20,
                             max_masks: int = 5,
                             iou_thresh: float = 0.5):
@@ -455,15 +387,18 @@ def segment_all_masks(image_path: str,
     Segment an image with SAM, take the largest top_n regions,
     and filter out duplicates by IoU, returning up to max_masks masks.
     """
-    model = SAM(model_path)
-    model.to("cuda")
-    results = model(image_path)[0]
+    #model = SAM(model_path)
+    #model.to("cuda")
+    #results = model(image_path)[0]
+
+    results = model(image_path, device='cuda', retina_masks=True)[0]
     all_masks = results.masks.data
 
     # Sort masks by area descending
     areas = [m.sum().item() for m in all_masks]
     idxs = np.argsort(areas)[::-1][:top_n]
-    
+    mascaras_sort = new_sort_masks(all_masks)
+    masks = [m for m in mascaras_sort if m.sum().item()<2000000 ]
     distinct_masks = []
     # for i in idxs:
     #     m = all_masks[i]
@@ -475,8 +410,9 @@ def segment_all_masks(image_path: str,
     img = Image.open(image_path).convert("RGB")
     rgb = np.array(img)
 
-    for i in idxs:
-        m = all_masks[i]
+    #for i in idxs:
+    for i in range(len(masks)):
+        m = masks[i]
         subdivididas = dividir_mascara(m,rgb)
         for subm in subdivididas:
             if all(mask_iou(subm, dm) < 0.5 for dm in distinct_masks):
@@ -485,6 +421,32 @@ def segment_all_masks(image_path: str,
                 break
         if len(distinct_masks) == max_masks:
             break
+
+    # # Sort masks by area descending
+    # areas = [m.sum().item() for m in all_masks]
+    # idxs = np.argsort(areas)[::-1][:top_n]
+    
+    # distinct_masks = []
+    # # for i in idxs:
+    # #     m = all_masks[i]
+    # #     if all(mask_iou(m, dm) < iou_thresh for dm in distinct):
+    # #         distinct.append(m)
+    # #     if len(distinct) >= max_masks:
+    # #         break
+
+    # img = Image.open(image_path).convert("RGB")
+    # rgb = np.array(img)
+
+    # for i in idxs:
+    #     m = all_masks[i]
+    #     subdivididas = dividir_mascara(m,rgb)
+    #     for subm in subdivididas:
+    #         if all(mask_iou(subm, dm) < 0.5 for dm in distinct_masks):
+    #             distinct_masks.append(subm)
+    #         if len(distinct_masks) == max_masks:
+    #             break
+    #     if len(distinct_masks) == max_masks:
+    #         break
     
 
     mascaras_finales = dividir_mascaras_grandes(distinct_masks, rgb)   
@@ -511,7 +473,7 @@ def overlay_masks_all(image_path: str,
     overlay = overlay.astype(np.uint8)
     out = Path(output_path)
     Image.fromarray(overlay).save(out)
-    print(f"Overlay saved to {out}")
+    #print(f"Overlay saved to {out}")
 
 def center_pallet(mask_total, rgb):    # Asegurarse de que la máscara sea binaria (0 o 1
     # Convertir a máscara binaria uint8 si es tensor
@@ -544,7 +506,7 @@ def center_pallet(mask_total, rgb):    # Asegurarse de que la máscara sea binar
         return bbox_info
     else:
         print("No se encontró ninguna región en la máscara.")
-def main_centros_pallet():
+def main_centros_pallet(model):
     # Paths and parameters
     image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
     model_path = r"sam2.1_l.pt"
@@ -553,8 +515,8 @@ def main_centros_pallet():
 
     color = np.array([0, 255, 255], dtype=np.uint8)  # cyan
     # 1) Segment and filter masks
-    masks = segment_all_masks(str(image_path), str(model_path), top_n=200, max_masks=5, iou_thresh=0.5)
-    print(f"Found {len(masks)} distinct masks.")
+    masks = segment_all_masks(str(image_path), model, top_n=200, max_masks=5, iou_thresh=0.5)
+    #print(f"Found {len(masks)} distinct masks.")
 
     # 2) Overlay masks
     overlay_masks_all(str(image_path), masks, color, overlay_out)
@@ -599,11 +561,10 @@ def all_clean_mask(masks):
         clean_masks.append(limpiar_mascara_tensor(m, umbral=45))
     return clean_masks
 
-def main():
+def main(model, cantidad_bolsas, umbral_mascaras):
     # Paths and parameters
-    time.sleep(0.5)
     image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
-    model_path = r"sam2.1_l.pt"
+    model_path = r"sam2_t.pt"
     overlay_out = r"overlay_bolsas.png"
     centers_out = r"D:/CIRAL/VISION/ftp_ck/images/centros_corregidos.jpg"
 
@@ -617,15 +578,18 @@ def main():
     ], dtype=np.uint8)
 
     # 1) Segment and filter masks
-    masks = segment_distinct_masks(image_path, model_path, top_n=200, max_masks=10,len_mask = 5, iou_thresh=0.5)
+    masks = segment_distinct_masks(image_path, model, top_n=20, max_masks=10, cantidad_bolsas=cantidad_bolsas,umbral_mascaras=umbral_mascaras)
+    
     mask2 = RestaMascaras(masks)
-    print("Masks after filtering:", len(mask2), "masks.")
+    #print("Masks after filtering:", len(mask2), "masks.")
+
     mascaras_limpias = []
     for i, mask in enumerate(mask2):  # máscara SAM por objeto
         mascaras_limpias.append(limpiar_mascara_sam(mask))   
 
-    maskHV = all_clean_mask(mascaras_limpias)     
-    print(f"Found {len(maskHV)} distinct masks.")
+
+    maskHV = all_clean_mask(mascaras_limpias)   
+    #print(f"Found {len(maskHV)} distinct masks.")
     
     
     # 2) Overlay masks
@@ -634,10 +598,8 @@ def main():
     # 3) Compute centroids and draw 
     image_path = r"D:\CIRAL\VISION\ftp_images\imgSend.jpg"
     #output_path = r"D:\CIRAL\VISION\ftp_ck\centros_y_angulos.jpg"
-
     dims = compute_dims_centers_angles(maskHV)
     dims2 = compute_dims_centers_angles(mascaras_limpias)
-
     dims_final = []
 
     for (w, h, cx, cy, _), (_, _, _, _, angle2) in zip(dims, dims2):
@@ -660,9 +622,9 @@ def main():
                     0.6, (255,0,0), 2)
 
     cv2.imwrite("bolsas_dims.jpg", img)
-    print("Medidas (px):")
-    for i, (w,h,_,_,_) in enumerate(dims_final, start=1):
-        print(f" Bolsa {i}: ancho={w:.1f}, alto={h:.1f}")
+    #print("Medidas (px):")
+    # for i, (w,h,_,_,_) in enumerate(dims_final, start=1):
+    #     print(f" Bolsa {i}: ancho={w:.1f}, alto={h:.1f}")
 
     print("Pipeline complete.")
 
@@ -670,6 +632,8 @@ def main():
     return dims_final
 
 
+def main_bolsas_sal(modelo):
+    return 1
 
 if __name__ == "__main__":
     main()
