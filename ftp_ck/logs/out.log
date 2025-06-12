@@ -1,0 +1,119 @@
+✅ SAM model loaded on startup
+INFO:     172.19.69.237:65421 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:65421 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     172.19.69.237:65422 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:65422 - "GET / HTTP/1.1" 200 OK
+Ejecutando: scp -i C:/Users/KINGDOM/ciral LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg D:\CIRAL\VISION\ftp_images\imgSend.jpg
+INFO:     172.19.69.237:65461 - "GET /puntos_bolsas HTTP/1.1" 500 Internal Server Error
+✅ SAM model loaded on startup
+INFO:     172.19.69.237:49867 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49867 - "GET /openapi.json HTTP/1.1" 200 OK
+Ejecutando: scp -i C:/Users/KINGDOM/ciral LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg D:\CIRAL\VISION\ftp_images\imgSend.jpg
+INFO:     172.19.69.237:49920 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49920 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49920 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49920 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49920 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49920 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49920 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49943 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49943 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49968 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49968 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49968 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49968 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49968 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49968 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49968 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49968 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49968 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49968 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:49968 - "GET / HTTP/1.1" 200 OK
+Ejecutando: scp -i C:/Users/KINGDOM/ciral LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg D:\CIRAL\VISION\ftp_images\imgSend.jpg
+INFO:     172.19.69.237:50090 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50090 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50090 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50090 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50090 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50188 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50188 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50188 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50188 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50188 - "GET / HTTP/1.1" 200 OK
+Ejecutando: scp -i C:/Users/KINGDOM/ciral LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg D:\CIRAL\VISION\ftp_images\imgSend.jpg
+INFO:     172.19.69.237:50226 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50226 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50398 - "GET / HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50398 - "GET / HTTP/1.1" 200 OK
+✅ SAM model loaded on startup
+INFO:     172.19.69.237:50495 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50495 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50495 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50495 - "GET /openapi.json HTTP/1.1" 200 OK
+✅ FTP activo en 172.19.69.246:2121
+INFO:     172.19.69.237:50494 - "GET /ftp_status HTTP/1.1" 200 OK
+✅ FTP activo en 172.19.69.246:2121
+INFO:     172.19.69.237:50494 - "GET /ftp_status HTTP/1.1" 200 OK
+✅ FTP activo en 172.19.69.246:2121
+INFO:     172.19.69.237:50494 - "GET /ftp_status HTTP/1.1" 200 OK
+  ✅ SAM model loaded on startup
+✅ SAM model loaded on startup
+✅ SAM model loaded on startup
+INFO:     172.19.69.237:50680 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50680 - "GET /openapi.json HTTP/1.1" 200 OK
+Ejecutando: scp -i C:/Users/KINGDOM/ciral LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg D:\CIRAL\VISION\ftp_images\imgSend.jpg
+INFO:     172.19.69.237:50681 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:50681 - "GET /openapi.json HTTP/1.1" 200 OK
+no da
+ ✅ SAM model loaded on startup
+✅ SAM model loaded on startup
+✅ SAM model loaded on startup
+INFO:     172.19.69.237:51134 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:51134 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     172.19.69.237:51134 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:51134 - "GET /openapi.json HTTP/1.1" 200 OK
+Ejecutando: scp -i C:/Users/KINGDOM/ciral LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg D:\CIRAL\VISION\ftp_images\imgSend.jpg
+INFO:     172.19.69.237:51175 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:51175 - "GET /openapi.json HTTP/1.1" 200 OK
+ no da:   Command '['scp', '-i', 'C:/Users/KINGDOM/ciral', 'LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg', 'D:\\CIRAL\\VISION\\ftp_images\\imgSend.jpg']' returned non-zero exit status 1.
+ ✅ SAM model loaded on startup
+✅ SAM model loaded on startup
+✅ SAM model loaded on startup
+INFO:     172.19.69.237:51261 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:51261 - "GET /openapi.json HTTP/1.1" 200 OK
+Ejecutando: scp -i D:/CIRAL/ciral LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg D:\CIRAL\VISION\ftp_images\imgSend.jpg
+INFO:     172.19.69.237:51309 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:51309 - "GET /openapi.json HTTP/1.1" 200 OK
+ no da:   Command '['scp', '-i', 'D:/CIRAL/ciral', 'LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg', 'D:\\CIRAL\\VISION\\ftp_images\\imgSend.jpg']' returned non-zero exit status 1.
+ ✅ SAM model loaded on startup
+ ✅ SAM model loaded on startup
+✅ SAM model loaded on startup
+✅ SAM model loaded on startup
+INFO:     172.19.69.237:51379 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:51379 - "GET /openapi.json HTTP/1.1" 200 OK
+ Ejecutando: scp -i C:/Users/KINGDOM/ciral LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg D:\CIRAL\VISION\ftp_images\imgSend.jpg
+❌ Error ejecutando SCP: Command '['scp', '-i', 'C:/Users/KINGDOM/ciral', 'LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg', 'D:\\CIRAL\\VISION\\ftp_images\\imgSend.jpg']' returned non-zero exit status 1.
+✅ Imagen descargada: D:\CIRAL\VISION\ftp_images\imgSend.jpg
+
+image 1/1 D:\CIRAL\VISION\ftp_images\imgSend.jpg: 832x1024 49 objects, 77.8ms
+Speed: 6.9ms preprocess, 77.8ms inference, 190.9ms postprocess per image at shape (1, 3, 832, 1024)
+Pipeline complete.
+timeee  563.8745515346527
+INFO:     172.19.69.237:51378 - "GET /puntos_bolsas HTTP/1.1" 200 OK
+✅ SAM model loaded on startup
+✅ SAM model loaded on startup
+INFO:     172.19.69.237:51823 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:51823 - "GET /openapi.json HTTP/1.1" 200 OK
+Ejecutando: scp -i C:/Users/KINGDOM/ciral -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg D:\CIRAL\VISION\ftp_images\imgSend.jpg
+INFO:     172.19.69.237:51824 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.19.69.237:51824 - "GET /openapi.json HTTP/1.1" 200 OK
+ ❌ Error ejecutando SCP: Command '['scp', '-i', 'C:/Users/KINGDOM/ciral', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', 'LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg', 'D:\\CIRAL\\VISION\\ftp_images\\imgSend.jpg']' returned non-zero exit status 1.
+✅ Imagen descargada: D:\CIRAL\VISION\ftp_images\imgSend.jpg
+
+image 1/1 D:\CIRAL\VISION\ftp_images\imgSend.jpg: 832x1024 49 objects, 77.4ms
+Speed: 5.7ms preprocess, 77.4ms inference, 184.2ms postprocess per image at shape (1, 3, 832, 1024)
+Pipeline complete.
+timeee  112.14108943939209
+✅ SAM model loaded on startup
+Ejecutando: scp -i C:/Users/KINGDOM/ciral -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg D:\CIRAL\VISION\ftp_images\imgSend.jpg
+no da:   Command '['scp', '-i', 'C:/Users/KINGDOM/ciral', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', 'LabCkCiral@172.19.69.246:/home/LabCkCiral/ftp_server/images/imgSend.jpg', 'D:\\CIRAL\\VISION\\ftp_images\\imgSend.jpg']' returned non-zero exit status 1.

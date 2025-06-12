@@ -66,9 +66,12 @@ def limpiar_mascara_sam(mask_tensor, kernel_size=7, min_area=5000):
     clean_mask = np.zeros_like(mask)
     cv2.drawContours(clean_mask, [max_contour], -1, 255, thickness=cv2.FILLED)
 
+    for c in contours:
+        if cv2.contourArea(c) >= min_area:
+            cv2.drawContours(clean_mask, [c], -1, 255, thickness=cv2.FILLED)
     # Convertir a binario 0–1 y luego a tensor
     clean_tensor = torch.tensor((clean_mask > 0).astype(np.uint8), device=device)
-
+    
     return clean_tensor
 
 
@@ -109,7 +112,7 @@ def segment_distinct_masks(image_path: str,
     areas = [m.sum().item() for m in all_masks]
     idxs = np.argsort(areas)[::-1][:top_n]
     mascaras_sort = new_sort_masks(all_masks)
-    masks = [m for m in mascaras_sort if m.sum().item()<2000000 ]
+    masks = [m for m in mascaras_sort if m.sum().item()<1000000 ]
     distinct_masks = []
     # for i in idxs:
     #     m = all_masks[i]
@@ -136,12 +139,20 @@ def segment_distinct_masks(image_path: str,
 
     #mascaras_finales = dividir_mascaras_grandes(distinct_masks, rgb)   
     #mascaras_sort = new_sort_masks(distinct_masks) 
-    areas = [m.sum().item() for m in mascaras_sort[:umbral_mascaras]]
+    #
+
+    #areas = [m.sum().item() for m in distinct_masks]
+
+
+    areas = [m.sum().item() for m in masks[:umbral_mascaras]]
     #mascaras_filtradas = filtro_por_similitud_area(mascaras_sort[:7], tolerancia=1000)
     best_group_indices,_ = find_most_similar_group(areas, group_size=cantidad_bolsas)
-    masks_b = []
-    for i in best_group_indices:
-        masks_b.append(mascaras_sort[i])
+    #masks_b = []
+
+    masks_b = [masks[i] for i in best_group_indices]
+
+    # for i in best_group_indices:
+    #     masks_b.append(mascaras_sort[i])
     # t_esdm = time.time()
     # print("time segme d mask :::::::::", t_sdm-t_esdm)
     # #return mascaras_filtradas
@@ -149,6 +160,57 @@ def segment_distinct_masks(image_path: str,
     # return mascaras_sort[:len_mask]
     return masks_b
 
+def segment_5_bolsas_reales(image_path: str,
+                           model,
+                           top_n: int = 30,
+                           cantidad_bolsas: int = 5,
+                           min_area: int = 2000,
+                           max_area: int = 600000):
+    """
+    Segmenta exactamente 5 bolsas reales usando FastSAM.
+    Reintenta si hay menos de 5. Filtra por área, geometría, densidad y solapamiento.
+    Excluye máscaras demasiado grandes.
+    """
+    def intentar_segmentacion(top_n_local):
+        results = model(image_path, device='cuda', retina_masks=True)[0]
+        all_masks = results.masks.data
+        mascaras_sort = new_sort_masks(all_masks)
+
+        img = Image.open(image_path).convert("RGB")
+        rgb = np.array(img)
+
+        masks_out = []
+
+        for i in range(min(top_n_local, len(mascaras_sort))):
+            m = mascaras_sort[i]
+            subdivididas = dividir_mascara(m, rgb)
+            for sub in subdivididas:
+                area = sub.sum().item()
+                if area < min_area or area > max_area:
+                    continue
+                if all(mask_iou(sub, x) < 0.3 for x in masks_out):
+                    masks_out.append(sub)
+                if len(masks_out) == cantidad_bolsas:
+                    break
+            if len(masks_out) == cantidad_bolsas:
+                break
+
+        return masks_out
+
+    # Primer intento con top_n bajo
+    masks_out = intentar_segmentacion(top_n)
+
+    # Si no alcanza las 5, intenta con más máscaras
+    if len(masks_out) < cantidad_bolsas:
+        print(f"⚠️ Detectadas solo {len(masks_out)} bolsas. Reintentando con top_n=60...")
+        masks_out = intentar_segmentacion(top_n=60)
+
+    # Si aún no hay suficientes, lanza error
+    if len(masks_out) < cantidad_bolsas:
+        raise ValueError(f"Solo se detectaron {len(masks_out)} bolsas reales. Revisa segmentación o iluminación.")
+
+    print(f"✅ Segmentadas {len(masks_out)} bolsas reales.")
+    return masks_out
 
 def find_most_similar_group(aspect_ratios, group_size=5):
     """
@@ -382,7 +444,8 @@ def segment_all_masks(image_path: str,
                             model,
                             top_n: int = 20,
                             max_masks: int = 5,
-                            iou_thresh: float = 0.5):
+                            iou_thresh: float = 0.5,
+                            rango: int = 700000):
     """
     Segment an image with SAM, take the largest top_n regions,
     and filter out duplicates by IoU, returning up to max_masks masks.
@@ -398,7 +461,7 @@ def segment_all_masks(image_path: str,
     areas = [m.sum().item() for m in all_masks]
     idxs = np.argsort(areas)[::-1][:top_n]
     mascaras_sort = new_sort_masks(all_masks)
-    masks = [m for m in mascaras_sort if m.sum().item()<2000000 ]
+    masks = [m for m in mascaras_sort if m.sum().item()<rango ]
     distinct_masks = []
     # for i in idxs:
     #     m = all_masks[i]
@@ -422,37 +485,10 @@ def segment_all_masks(image_path: str,
         if len(distinct_masks) == max_masks:
             break
 
-    # # Sort masks by area descending
-    # areas = [m.sum().item() for m in all_masks]
-    # idxs = np.argsort(areas)[::-1][:top_n]
-    
-    # distinct_masks = []
-    # # for i in idxs:
-    # #     m = all_masks[i]
-    # #     if all(mask_iou(m, dm) < iou_thresh for dm in distinct):
-    # #         distinct.append(m)
-    # #     if len(distinct) >= max_masks:
-    # #         break
+    #mascaras_finales = dividir_mascaras_grandes(distinct_masks, rgb)   
+    mask_total = torch.zeros_like(masks[0], dtype=torch.uint8)
 
-    # img = Image.open(image_path).convert("RGB")
-    # rgb = np.array(img)
-
-    # for i in idxs:
-    #     m = all_masks[i]
-    #     subdivididas = dividir_mascara(m,rgb)
-    #     for subm in subdivididas:
-    #         if all(mask_iou(subm, dm) < 0.5 for dm in distinct_masks):
-    #             distinct_masks.append(subm)
-    #         if len(distinct_masks) == max_masks:
-    #             break
-    #     if len(distinct_masks) == max_masks:
-    #         break
-    
-
-    mascaras_finales = dividir_mascaras_grandes(distinct_masks, rgb)   
-    mask_total = torch.zeros_like(distinct_masks[0], dtype=torch.uint8)
-
-    for m in mascaras_finales:
+    for m in masks[0:max_masks]:
         mask_total |= m.to(torch.uint8)  # OR bit a bit    
     return mask_total
 
@@ -468,7 +504,7 @@ def overlay_masks_all(image_path: str,
     rgb = np.array(img)
     overlay = rgb.astype(np.float32)
     m = masks.cpu().numpy().astype(bool)
-    overlay[m] = overlay[m] * 0.5 + color * 0.5
+    overlay[m] = overlay[m] * 0.0 + color * 1
     
     overlay = overlay.astype(np.uint8)
     out = Path(output_path)
@@ -506,7 +542,7 @@ def center_pallet(mask_total, rgb):    # Asegurarse de que la máscara sea binar
         return bbox_info
     else:
         print("No se encontró ninguna región en la máscara.")
-def main_centros_pallet(model):
+def main_centros_pallet(model, cantidad_bolsas, rango):
     # Paths and parameters
     image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
     model_path = r"sam2.1_l.pt"
@@ -515,7 +551,7 @@ def main_centros_pallet(model):
 
     color = np.array([0, 255, 255], dtype=np.uint8)  # cyan
     # 1) Segment and filter masks
-    masks = segment_all_masks(str(image_path), model, top_n=200, max_masks=5, iou_thresh=0.5)
+    masks = segment_all_masks(str(image_path), model, top_n=200, max_masks=cantidad_bolsas, iou_thresh=0.5, rango=rango)
     #print(f"Found {len(masks)} distinct masks.")
 
     # 2) Overlay masks
@@ -561,12 +597,19 @@ def all_clean_mask(masks):
         clean_masks.append(limpiar_mascara_tensor(m, umbral=45))
     return clean_masks
 
-def main(model, cantidad_bolsas, umbral_mascaras):
+
+
+
+
+
+def main_prod3h(model, cantidad_bolsas, umbral_mascaras):
     # Paths and parameters
     image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
+    
     model_path = r"sam2_t.pt"
     overlay_out = r"overlay_bolsas.png"
     centers_out = r"D:/CIRAL/VISION/ftp_ck/images/centros_corregidos.jpg"
+    overlay_out2 = r"D:\CIRAL\VISION\ftp_ck\overlay_bolsas2.png"
 
     colors = np.array([
         [231, 169, 39],
@@ -577,9 +620,40 @@ def main(model, cantidad_bolsas, umbral_mascaras):
         [  0, 255, 255],
     ], dtype=np.uint8)
 
+#     colors = np.array([
+#     [231, 169, 39],   # naranja
+#     [0, 255, 0],      # verde
+#     [0, 0, 255],      # azul
+#     [255, 255, 0],    # amarillo
+#     [255, 0, 255],    # magenta
+#     [0, 255, 255],    # cyan
+#     [255, 128, 0],    # naranja fuerte
+#     [128, 0, 255],    # púrpura
+#     [0, 128, 255],    # azul celeste
+#     [255, 0, 128],    # rosa fuerte
+#     [0, 255, 128],    # verde menta
+#     [128, 255, 0],    # lima
+#     [255, 64, 64],    # rojo claro
+#     [64, 255, 64],    # verde claro
+#     [64, 64, 255]     # azul claro
+# ], dtype=np.uint8)
+
+    #### NUEVO CODIGO ######
+    #color = np.array([255, 255, 255], dtype=np.uint8)
+    #masks_all = segment_all_masks(str(image_path), model, top_n=200, max_masks=10, iou_thresh=0.5)
+    #print(f"Found {len(masks)} distinct masks.")
+
+    # 2) Overlay masks
+    #overlay_masks_all(str(image_path), masks_all, color, overlay_out2)
+
+    #masks = segment_distinct_masks(overlay_out2, model, top_n=20, max_masks=10, cantidad_bolsas=cantidad_bolsas,umbral_mascaras=umbral_mascaras)
+    
+
+    ########################
     # 1) Segment and filter masks
     masks = segment_distinct_masks(image_path, model, top_n=20, max_masks=10, cantidad_bolsas=cantidad_bolsas,umbral_mascaras=umbral_mascaras)
-    
+    #masks = segment_5_bolsas_reales(image_path, model, cantidad_bolsas=cantidad_bolsas)
+
     mask2 = RestaMascaras(masks)
     #print("Masks after filtering:", len(mask2), "masks.")
 
@@ -630,6 +704,152 @@ def main(model, cantidad_bolsas, umbral_mascaras):
 
     torch.cuda.empty_cache()
     return dims_final
+
+
+
+
+
+
+def main(model, cantidad_bolsas, umbral_mascaras):
+    # Paths and parameters
+    image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
+    
+    model_path = r"sam2_t.pt"
+    overlay_out = r"overlay_bolsas.png"
+    centers_out = r"D:/CIRAL/VISION/ftp_ck/images/centros_corregidos.jpg"
+    overlay_out2 = r"D:\CIRAL\VISION\ftp_ck\overlay_bolsas2.png"
+
+    colors = np.array([
+        [231, 169, 39],
+        [  0, 255,   0],
+        [  0,   0, 255],
+        [255, 255,   0],
+        [255,   0, 255],
+        [  0, 255, 255],
+    ], dtype=np.uint8)
+
+#     colors = np.array([
+#     [231, 169, 39],   # naranja
+#     [0, 255, 0],      # verde
+#     [0, 0, 255],      # azul
+#     [255, 255, 0],    # amarillo
+#     [255, 0, 255],    # magenta
+#     [0, 255, 255],    # cyan
+#     [255, 128, 0],    # naranja fuerte
+#     [128, 0, 255],    # púrpura
+#     [0, 128, 255],    # azul celeste
+#     [255, 0, 128],    # rosa fuerte
+#     [0, 255, 128],    # verde menta
+#     [128, 255, 0],    # lima
+#     [255, 64, 64],    # rojo claro
+#     [64, 255, 64],    # verde claro
+#     [64, 64, 255]     # azul claro
+# ], dtype=np.uint8)
+
+    #### NUEVO CODIGO ######
+    color = np.array([255, 255, 255], dtype=np.uint8)
+    masks_all = segment_all_masks(str(image_path), model, top_n=200, max_masks=10, iou_thresh=0.5)
+    #print(f"Found {len(masks)} distinct masks.")
+
+    # 2) Overlay masks
+    overlay_masks_all(str(image_path), masks_all, color, overlay_out2)
+
+    masks = segment_distinct_masks(overlay_out2, model, top_n=20, max_masks=10, cantidad_bolsas=cantidad_bolsas,umbral_mascaras=umbral_mascaras)
+    
+
+    ########################
+    # 1) Segment and filter masks
+    #masks = segment_distinct_masks(image_path, model, top_n=20, max_masks=10, cantidad_bolsas=cantidad_bolsas,umbral_mascaras=umbral_mascaras)
+    #masks = segment_5_bolsas_reales(image_path, model, cantidad_bolsas=cantidad_bolsas)
+
+    mask2 = RestaMascaras(masks)
+    #print("Masks after filtering:", len(mask2), "masks.")
+
+    mascaras_limpias = []
+    for i, mask in enumerate(mask2):  # máscara SAM por objeto
+        mascaras_limpias.append(limpiar_mascara_sam(mask))   
+
+
+    maskHV = all_clean_mask(mascaras_limpias)   
+    #print(f"Found {len(maskHV)} distinct masks.")
+    
+    
+    # 2) Overlay masks
+    overlay_masks(str(overlay_out2), masks, colors, overlay_out)
+
+    # 3) Compute centroids and draw 
+    image_path = r"D:\CIRAL\VISION\ftp_images\imgSend.jpg"
+    #output_path = r"D:\CIRAL\VISION\ftp_ck\centros_y_angulos.jpg"
+    dims = compute_dims_centers_angles(maskHV)
+    dims2 = compute_dims_centers_angles(mascaras_limpias)
+    dims_final = []
+
+    for (w, h, cx, cy, _), (_, _, _, _, angle2) in zip(dims, dims2):
+        dims_final.append((w, h, cx, cy, angle2))
+    
+    img = cv2.imread(str(image_path))
+    for i, (w, h, cx, cy, ang) in enumerate(dims_final, start=1):
+        pt = (int(cx), int(cy))
+        # rectángulo
+        box = cv2.boxPoints(((cx, cy), (w, h), ang))
+        box = np.int32(box)
+        cv2.drawContours(img, [box], 0, (0,255,0), 2)
+        # centro
+        cv2.drawMarker(img, pt, (0,0,255), cv2.MARKER_CROSS, 20, 2)
+        # texto con dimensión
+        cv2.putText(img,
+                    f"{i}: W={w:.0f}px, H={h:.0f}px",
+                    (pt[0]+10, pt[1]-10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6, (255,0,0), 2)
+
+    cv2.imwrite("bolsas_dims.jpg", img)
+    #print("Medidas (px):")
+    # for i, (w,h,_,_,_) in enumerate(dims_final, start=1):
+    #     print(f" Bolsa {i}: ancho={w:.1f}, alto={h:.1f}")
+
+    print("Pipeline complete.")
+
+    torch.cuda.empty_cache()
+    return dims_final
+
+
+
+
+
+def mostrar_todas_mascaras(model):
+    
+    overlay_out = r"all_masks.png"
+    image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
+    #image_path = r"D:\CIRAL\VISION\ftp_ck\overlay_bolsas2.png"
+    results = model(image_path, device='cuda', retina_masks=True)[0]
+    all_masks = results.masks.data
+
+    mascaras_sort = new_sort_masks(all_masks)
+    colors = np.array([
+        [231, 169, 39],   # naranja
+        [0, 255, 0],      # verde
+        [0, 0, 255],      # azul
+        [255, 255, 0],    # amarillo
+        [255, 0, 255],    # magenta
+        [0, 255, 255],    # cyan
+        [255, 128, 0],    # naranja fuerte
+        [128, 0, 255],    # púrpura
+        [0, 128, 255],    # azul celeste
+        [255, 0, 128],    # rosa fuerte
+        [0, 255, 128],    # verde menta
+        [128, 255, 0],    # lima
+        [255, 64, 64],    # rojo claro
+        [64, 255, 64],    # verde claro
+        [64, 64, 255]     # azul claro
+    ], dtype=np.uint8)
+    overlay_masks(str(image_path), [mascaras_sort[5]], colors, overlay_out)
+
+    return 1
+
+
+
+
 
 
 def main_bolsas_sal(modelo):

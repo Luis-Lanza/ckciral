@@ -85,10 +85,18 @@ LOCAL_FILE = LOCAL_DIR / "imgSend.jpg"
 def download_with_custom_key():
     LOCAL_DIR.mkdir(parents=True, exist_ok=True)
     remote_path = f"{USER}@{HOST}:{REMOTE_FILE}"
-    cmd = ["scp", "-i", KEY_PATH, remote_path, str(LOCAL_FILE)]
-
+    #cmd = ["scp", "-i", KEY_PATH, remote_path, str(LOCAL_FILE)]
+    cmd = [
+        "scp",
+        "-i", KEY_PATH,
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        remote_path,
+        str(LOCAL_FILE)
+    ]
     print(f"Ejecutando: {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
+   
     print(f"✅ Imagen descargada: {LOCAL_FILE}")
 
 
