@@ -91,7 +91,8 @@ def segment_distinct_masks(image_path: str,
                             top_n: int = 20,
                             max_masks: int = 5,
                             cantidad_bolsas: int= 5,
-                            umbral_mascaras: int= 5,                            
+                            umbral_mascaras: int= 5,
+                            mascara_grande: int = 1000000                            
                             ):
     """
     Segment an image with SAM, take the largest top_n regions,
@@ -112,7 +113,7 @@ def segment_distinct_masks(image_path: str,
     areas = [m.sum().item() for m in all_masks]
     idxs = np.argsort(areas)[::-1][:top_n]
     mascaras_sort = new_sort_masks(all_masks)
-    masks = [m for m in mascaras_sort if m.sum().item()<1000000 ]
+    masks = [m for m in mascaras_sort if m.sum().item()<mascara_grande ]
     distinct_masks = []
     # for i in idxs:
     #     m = all_masks[i]
@@ -705,8 +706,212 @@ def main_prod3h(model, cantidad_bolsas, umbral_mascaras):
     torch.cuda.empty_cache()
     return dims_final
 
+def main_prod2s(model, cantidad_bolsas, umbral_mascaras):
+    # Paths and parameters
+    image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
+    
+    model_path = r"sam2_t.pt"
+    overlay_out = r"overlay_bolsas.png"
+    centers_out = r"D:/CIRAL/VISION/ftp_ck/images/centros_corregidos.jpg"
+    overlay_out2 = r"D:\CIRAL\VISION\ftp_ck\overlay_bolsas2.png"
+
+    colors = np.array([
+        [231, 169, 39],
+        [  0, 255,   0],
+        [  0,   0, 255],
+        [255, 255,   0],
+        [255,   0, 255],
+        [  0, 255, 255],
+    ], dtype=np.uint8)
+
+#     colors = np.array([
+#     [231, 169, 39],   # naranja
+#     [0, 255, 0],      # verde
+#     [0, 0, 255],      # azul
+#     [255, 255, 0],    # amarillo
+#     [255, 0, 255],    # magenta
+#     [0, 255, 255],    # cyan
+#     [255, 128, 0],    # naranja fuerte
+#     [128, 0, 255],    # púrpura
+#     [0, 128, 255],    # azul celeste
+#     [255, 0, 128],    # rosa fuerte
+#     [0, 255, 128],    # verde menta
+#     [128, 255, 0],    # lima
+#     [255, 64, 64],    # rojo claro
+#     [64, 255, 64],    # verde claro
+#     [64, 64, 255]     # azul claro
+# ], dtype=np.uint8)
+
+    #### NUEVO CODIGO ######
+    #color = np.array([255, 255, 255], dtype=np.uint8)
+    #masks_all = segment_all_masks(str(image_path), model, top_n=200, max_masks=10, iou_thresh=0.5)
+    #print(f"Found {len(masks)} distinct masks.")
+
+    # 2) Overlay masks
+    #overlay_masks_all(str(image_path), masks_all, color, overlay_out2)
+
+    #masks = segment_distinct_masks(overlay_out2, model, top_n=20, max_masks=10, cantidad_bolsas=cantidad_bolsas,umbral_mascaras=umbral_mascaras)
+    
+
+    ########################
+    # 1) Segment and filter masks
+    masks = segment_distinct_masks(image_path, model, top_n=20, max_masks=10, cantidad_bolsas=cantidad_bolsas,umbral_mascaras=umbral_mascaras)
+    #masks = segment_5_bolsas_reales(image_path, model, cantidad_bolsas=cantidad_bolsas)
+
+    mask2 = RestaMascaras(masks)
+    #print("Masks after filtering:", len(mask2), "masks.")
+
+    mascaras_limpias = []
+    for i, mask in enumerate(mask2):  # máscara SAM por objeto
+        mascaras_limpias.append(limpiar_mascara_sam(mask))   
 
 
+    maskHV = all_clean_mask(mascaras_limpias)   
+    #print(f"Found {len(maskHV)} distinct masks.")
+    
+    
+    # 2) Overlay masks
+    overlay_masks(str(image_path), maskHV, colors, overlay_out)
+
+    # 3) Compute centroids and draw 
+    image_path = r"D:\CIRAL\VISION\ftp_images\imgSend.jpg"
+    #output_path = r"D:\CIRAL\VISION\ftp_ck\centros_y_angulos.jpg"
+    dims = compute_dims_centers_angles(maskHV)
+    dims2 = compute_dims_centers_angles(mascaras_limpias)
+    dims_final = []
+
+    for (w, h, cx, cy, _), (_, _, _, _, angle2) in zip(dims, dims2):
+        dims_final.append((w, h, cx, cy, angle2))
+    
+    img = cv2.imread(str(image_path))
+    for i, (w, h, cx, cy, ang) in enumerate(dims_final, start=1):
+        pt = (int(cx), int(cy))
+        # rectángulo
+        box = cv2.boxPoints(((cx, cy), (w, h), ang))
+        box = np.int32(box)
+        cv2.drawContours(img, [box], 0, (0,255,0), 2)
+        # centro
+        cv2.drawMarker(img, pt, (0,0,255), cv2.MARKER_CROSS, 20, 2)
+        # texto con dimensión
+        cv2.putText(img,
+                    f"{i}: W={w:.0f}px, H={h:.0f}px",
+                    (pt[0]+10, pt[1]-10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6, (255,0,0), 2)
+
+    cv2.imwrite("bolsas_dims.jpg", img)
+    #print("Medidas (px):")
+    # for i, (w,h,_,_,_) in enumerate(dims_final, start=1):
+    #     print(f" Bolsa {i}: ancho={w:.1f}, alto={h:.1f}")
+
+    print("Pipeline complete.")
+
+    torch.cuda.empty_cache()
+    return dims_final
+
+
+def main_bolsa(model, cantidad_bolsas, umbral_mascaras):
+    # Paths and parameters
+    image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
+    
+    model_path = r"sam2_t.pt"
+    overlay_out = r"overlay_bolsas.png"
+    centers_out = r"D:/CIRAL/VISION/ftp_ck/images/centros_corregidos.jpg"
+    overlay_out2 = r"D:\CIRAL\VISION\ftp_ck\overlay_bolsas2.png"
+
+    colors = np.array([
+        [231, 169, 39],
+        [  0, 255,   0],
+        [  0,   0, 255],
+        [255, 255,   0],
+        [255,   0, 255],
+        [  0, 255, 255],
+    ], dtype=np.uint8)
+
+#     colors = np.array([
+#     [231, 169, 39],   # naranja
+#     [0, 255, 0],      # verde
+#     [0, 0, 255],      # azul
+#     [255, 255, 0],    # amarillo
+#     [255, 0, 255],    # magenta
+#     [0, 255, 255],    # cyan
+#     [255, 128, 0],    # naranja fuerte
+#     [128, 0, 255],    # púrpura
+#     [0, 128, 255],    # azul celeste
+#     [255, 0, 128],    # rosa fuerte
+#     [0, 255, 128],    # verde menta
+#     [128, 255, 0],    # lima
+#     [255, 64, 64],    # rojo claro
+#     [64, 255, 64],    # verde claro
+#     [64, 64, 255]     # azul claro
+# ], dtype=np.uint8)
+
+    #### NUEVO CODIGO ######
+    #color = np.array([255, 255, 255], dtype=np.uint8)
+    #masks_all = segment_all_masks(str(image_path), model, top_n=200, max_masks=10, iou_thresh=0.5)
+    #print(f"Found {len(masks)} distinct masks.")
+
+    # 2) Overlay masks
+    #overlay_masks_all(str(image_path), masks_all, color, overlay_out2)
+
+    #masks = segment_distinct_masks(overlay_out2, model, top_n=20, max_masks=10, cantidad_bolsas=cantidad_bolsas,umbral_mascaras=umbral_mascaras)
+    
+
+    ########################
+    # 1) Segment and filter masks
+    masks = segment_distinct_masks(image_path, model, top_n=20, max_masks=10, cantidad_bolsas=cantidad_bolsas,umbral_mascaras=umbral_mascaras, mascara_grande=5000000)
+    #masks = segment_5_bolsas_reales(image_path, model, cantidad_bolsas=cantidad_bolsas)
+
+    mask2 = RestaMascaras(masks)
+    #print("Masks after filtering:", len(mask2), "masks.")
+
+    mascaras_limpias = []
+    for i, mask in enumerate(mask2):  # máscara SAM por objeto
+        mascaras_limpias.append(limpiar_mascara_sam(mask))   
+
+
+    maskHV = all_clean_mask(mascaras_limpias)   
+    #print(f"Found {len(maskHV)} distinct masks.")
+    
+    
+    # 2) Overlay masks
+    overlay_masks(str(image_path), maskHV, colors, overlay_out)
+
+    # 3) Compute centroids and draw 
+    image_path = r"D:\CIRAL\VISION\ftp_images\imgSend.jpg"
+    #output_path = r"D:\CIRAL\VISION\ftp_ck\centros_y_angulos.jpg"
+    dims = compute_dims_centers_angles(maskHV)
+    dims2 = compute_dims_centers_angles(mascaras_limpias)
+    dims_final = []
+
+    for (w, h, cx, cy, _), (_, _, _, _, angle2) in zip(dims, dims2):
+        dims_final.append((w, h, cx, cy, angle2))
+    
+    img = cv2.imread(str(image_path))
+    for i, (w, h, cx, cy, ang) in enumerate(dims_final, start=1):
+        pt = (int(cx), int(cy))
+        # rectángulo
+        box = cv2.boxPoints(((cx, cy), (w, h), ang))
+        box = np.int32(box)
+        cv2.drawContours(img, [box], 0, (0,255,0), 2)
+        # centro
+        cv2.drawMarker(img, pt, (0,0,255), cv2.MARKER_CROSS, 20, 2)
+        # texto con dimensión
+        cv2.putText(img,
+                    f"{i}: W={w:.0f}px, H={h:.0f}px",
+                    (pt[0]+10, pt[1]-10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6, (255,0,0), 2)
+
+    cv2.imwrite("bolsas_dims.jpg", img)
+    #print("Medidas (px):")
+    # for i, (w,h,_,_,_) in enumerate(dims_final, start=1):
+    #     print(f" Bolsa {i}: ancho={w:.1f}, alto={h:.1f}")
+
+    print("Pipeline complete.")
+
+    torch.cuda.empty_cache()
+    return dims_final
 
 
 
@@ -843,7 +1048,7 @@ def mostrar_todas_mascaras(model):
         [64, 255, 64],    # verde claro
         [64, 64, 255]     # azul claro
     ], dtype=np.uint8)
-    overlay_masks(str(image_path), [mascaras_sort[5]], colors, overlay_out)
+    overlay_masks(str(image_path), mascaras_sort[0:8], colors, overlay_out)
 
     return 1
 

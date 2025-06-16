@@ -272,14 +272,16 @@ def get_puntos_bolsas_sal():
     model = app.state.sam_model
     cliente.download_with_custom_key()
     # 1) Segmentación y cálculo de dimensiones (tu función existing)
-    dims = image_process.main(model = model, cantidad_bolsas=6, umbral_mascaras=11)  # [(w,h,cx,cy,angle), ...]
-    t_despues_sdm = time.time()
-    conf = image_process.ImgConfirmation(dims, 5,0.2)
+    #dims = image_process.main(model = model, cantidad_bolsas=6, umbral_mascaras=11)  # [(w,h,cx,cy,angle), ...]
+
+    dims = image_process.main_bolsa(model = model, cantidad_bolsas=6, umbral_mascaras=11)  # [(w,h,cx,cy,angle), ...]
+    conf = image_process.ImgConfirmation(dims, 6,0.2)
     global dims_global
     dims_global = dims
 
     # 2) Transformar pixeles a mm
-    centers_mm, escala = Transf_px_mm.transf_px_mm(dims, 600, 400, 335)
+    centers_mm = Transf_px_mm.convertir_centros_px_a_mm(dims)
+    #centers_mm, escala = Transf_px_mm.transf_px_mm(dims, 600, 400, 335)
     #    centers_mm == [(x1,y1), (x2,y2), ...]
     # 3) Calcular diferencias de ángulo
     dif_angles = Transf_px_mm.diferencia_angles(dims)
@@ -355,7 +357,52 @@ def get_puntos_bolsas_prod2s():
     model = app.state.sam_model
     cliente.download_with_custom_key()
     # 1) Segmentación y cálculo de dimensiones (tu función existing)
-    dims = image_process.main(model = model, cantidad_bolsas=5, umbral_mascaras=9)  # [(w,h,cx,cy,angle), ...]
+    dims = image_process.main_prod3h(model = model, cantidad_bolsas=5, umbral_mascaras=9)  # [(w,h,cx,cy,angle), ...]
+    t_despues_sdm = time.time()
+    conf = image_process.ImgConfirmation(dims, 5,0.3)
+
+    
+    global dims_global
+    dims_global = dims
+
+    # 2) Transformar pixeles a mm
+    #centers_mm, escala = Transf_px_mm.transf_px_mm(dims, 650, 450, 335)
+    centers_mm = Transf_px_mm.convertir_centros_px_a_mm(dims)
+    #    centers_mm == [(x1,y1), (x2,y2), ...]
+    # 3) Calcular diferencias de ángulo
+    dif_angles = Transf_px_mm.diferencia_angles(dims)
+    #    dif_angles == [(a1,da1), (a2,da2), ...]
+    
+    # 4) Empaquetar todos los puntos en una lista
+    points: List[DataPoint] = []
+    #print("centers_mm",len(centers_mm))
+    #print("dif_angles",len(dif_angles))
+    t = 0
+    
+    for idx, ((x, y), (angle, diff_angle)) in enumerate(zip(centers_mm, dif_angles), start=0):
+        #print("t",t)
+        t = t+1
+        points.append(DataPoint(
+            id=idx,
+            x=x,
+            y=y,
+            angle=angle,
+            diff_angle=diff_angle,
+            confirmation= conf
+        ))
+    #print("points ====== ",points)
+    t_e = time.time()
+    print("timeee ", t_e-t_i)
+    return points
+
+
+@app.get("/bolsa", response_model=List[DataPoint])
+def get_bolsa():
+    t_i = time.time()
+    model = app.state.sam_model
+    cliente.download_with_custom_key()
+    # 1) Segmentación y cálculo de dimensiones (tu función existing)
+    dims = image_process.main_bolsa(model = model, cantidad_bolsas=1, umbral_mascaras=2)  # [(w,h,cx,cy,angle), ...]
     t_despues_sdm = time.time()
     conf = image_process.ImgConfirmation(dims, 5,0.3)
 
@@ -391,6 +438,9 @@ def get_puntos_bolsas_prod2s():
     t_e = time.time()
     print("timeee ", t_e-t_i)
     return points
+
+
+
 
 
 @app.get("/all_mask")
