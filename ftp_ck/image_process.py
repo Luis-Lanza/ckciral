@@ -917,8 +917,9 @@ def main_bolsa(model, cantidad_bolsas, umbral_mascaras):
 
 def main(model, cantidad_bolsas, umbral_mascaras):
     # Paths and parameters
-    image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
-    
+    #image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
+    image_path = r"D:\CIRAL\VISION\ftp_ck\ToF_image\solo_altura_filtrada_colormap.png"
+
     model_path = r"sam2_t.pt"
     overlay_out = r"overlay_bolsas.png"
     centers_out = r"D:/CIRAL/VISION/ftp_ck/images/centros_corregidos.jpg"

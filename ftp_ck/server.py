@@ -11,8 +11,7 @@ from pathlib import Path
 import ftp_status
 import time
 from ultralytics import SAM, FastSAM
-
-
+from camara_arriba import app2
 global dims_global
 dims_global = []
 # model_path = "ftp_ck\sam2_t.pt"
@@ -63,7 +62,7 @@ def get_puntos_bolsas():
         # 1) Segmentación y cálculo de dimensiones (tu función existing)
         dims = image_process.main(model = model, cantidad_bolsas=5, umbral_mascaras=9)  # [(w,h,cx,cy,angle), ...]
         t_despues_sdm = time.time()
-        conf = image_process.ImgConfirmation(dims, 6,0.3)
+        conf = image_process.ImgConfirmation(dims, 5,0.3)
 
         
         global dims_global
@@ -196,7 +195,7 @@ def get_centro_pallet():
     cliente.download_with_custom_key()
     # 1) Segmentación y cálculo de dimensiones (tu función existing)
     model = app.state.sam_model
-    dims = image_process.main_centros_pallet(model=model, cantidad_bolsas = 5, rango=1000000)  # [(w,h,cx,cy,angle), ...]
+    dims = image_process.main_centros_pallet(model=model, cantidad_bolsas = 5, rango=700000)  # [(w,h,cx,cy,angle), ...]
 
     # 2) Transformar pixeles a mm
     centers_mm = Transf_px_mm.transform_pallet_center(dims,335, 1200, 1000)
@@ -450,3 +449,8 @@ def get_all_mask():
     cliente.download_with_custom_key()
     image_process.mostrar_todas_mascaras(model)
     return {"status": "OK"}
+
+
+@app.get("/vzense_pallet")
+def get_vzense_pallet():
+    return app2.detectar_objetos()
