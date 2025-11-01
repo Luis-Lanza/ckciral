@@ -11,8 +11,12 @@ import ctypes
 import json
 import numpy.ctypeslib
 import os
+import socket
 
 #app = Flask(__name__)
+
+
+
 
 def IncrementarMM(altura_mm):
     metros = altura_mm // 1000
@@ -32,31 +36,76 @@ def put_multiline_text(img, text, org, font, font_scale, color, thickness, line_
 def detectar_objetos():
     objetos_detectados = []
 
-    # -------------- Inicialización Cámara ----------------
+
+    from time import sleep
+
     camera = ScepterTofCam()
+
     print("Buscando cámaras...")
-    device_count = camera.scGetDeviceCount(3000)
-    if device_count <= 0:
-        return {"objetos": [], "codigo": "999", "mensaje": "No se encontró ninguna cámara."}
-    ret, device_list = camera.scGetDeviceInfoList(device_count)
-    if ret != 0 or len(device_list) == 0:
-        return {"objetos": [], "codigo": "999", "mensaje": "Error al obtener lista de dispositivos."}
 
-    device_info = None
-    for dev in device_list:
-        print('IP:', dev.ip)
-        if dev.ip == b'172.19.69.144':
-            device_info = dev
-            break
-    if device_info is None:
-        device_info = device_list[0]
+    while True:
+        device_count = camera.scGetDeviceCount(3000)
 
-    ret = camera.scOpenDeviceBySN(device_info.serialNumber)
-    if ret != 0:
-        return {"objetos": [], "codigo": "999", "mensaje": f'scOpenDeviceBySN failed: {ret}'}
+        if device_count > 0:
+            ret, device_list = camera.scGetDeviceInfoList(device_count)
+
+            for device_info in device_list:
+                print('IP encontrada:', device_info.ip)
+
+                if device_info.ip == b'192.168.10.144':
+                    ret = camera.scOpenDeviceBySN(device_info.serialNumber)
+
+                    if ret == 0:
+                        print("Cámara conectada correctamente.")
+                        # Ya está conectada, salir del bucle
+                        break
+                    else:
+                        print('Codigo Error:', ret)
+                        print('Fallo al abrir la cámara. Reintentando...')
+                        # No exit, simplemente esperamos y volvemos a intentar
+                        sleep(2)
+
+            else:
+                # La IP no está entre las cámaras encontradas
+                print("Cámara no encontrada. Reintentando...")
+                sleep(2)
+                continue  # vuelve al while
+
+            break  # si se conectó correctamente, salir del while
+
+        else:
+            print("No se encontraron dispositivos. Reintentando...")
+            sleep(2)
+
+    # # -------------- Inicialización Cámara ----------------
+    # camera = ScepterTofCam()
+    # print("Buscando cámaras...")
+    # device_count = camera.scGetDeviceCount(3000)
+    # if device_count <= 0:
+    #     camera.scCloseDevice()
+    #     return {"objetos": [], "codigo": "999", "mensaje": "No se encontró ninguna cámara."}
+    # ret, device_list = camera.scGetDeviceInfoList(device_count)
+    # if ret != 0 or len(device_list) == 0:
+    #     camera.scCloseDevice()
+    #     return {"objetos": [], "codigo": "999", "mensaje": "Error al obtener lista de dispositivos."}
+
+    # device_info = None
+    # for dev in device_list:
+    #     print('IP:', dev.ip)
+    #     if dev.ip == b'172.19.69.144':
+    #         device_info = dev
+    #         break
+    # if device_info is None:
+    #     device_info = device_list[0]
+
+    # ret = camera.scOpenDeviceBySN(device_info.serialNumber)
+    # if ret != 0:
+    #     camera.scCloseDevice()
+    #     return {"objetos": [], "codigo": "999", "mensaje": f'scOpenDeviceBySN failed: {ret}'}
 
     ret, intrinsics = camera.scGetSensorIntrinsicParameters()
     if ret != 0:
+        camera.scCloseDevice()
         return {"objetos": [], "codigo": "999", "mensaje": f"Error al obtener parámetros intrínsecos: {ret}"}
 
     fx = intrinsics.fx
@@ -66,19 +115,28 @@ def detectar_objetos():
 
     print(f"Intrínsecos obtenidos: fx={fx}, fy={fy}, cx={cx}, cy={cy}")
 
-    ret, extrinsics = camera.scGetSensorExtrinsicParameters()
-    if ret != 0:
-        camera.scCloseDevice()
-        return {"objetos": [], "codigo": "999", "mensaje": "Error al obtener parámetros extrínsecos."}
+    # ret, extrinsics = camera.scGetSensorExtrinsicParameters()
+    # if ret != 0:
+    #     camera.scCloseDevice()
+    #     return {"objetos": [], "codigo": "999", "mensaje": "Error al obtener parámetros extrínsecos."}
 
-    R = np.array(extrinsics.rotation).reshape(3, 3)
-    T = np.array(extrinsics.translation)
+    R = np.array([
+    [ 0.03122012,  0.99674737, -0.07429657],
+    [ 0.99951172, -0.03103876,  0.00359472],
+    [ 0.00127695, -0.07437252, -0.99722971]
+    ])
 
-   # offset_fijo_x = -54.0
-    offset_fijo_y = 2387.20  # Ajusta según tu configuración
+    T = np.array([
+        [2375.95575957],
+        [ -92.9485012 ],
+        [3746.9587874 ]
+    ])
 
-   # T[0] += offset_fijo_x
-    T[1] += offset_fijo_y
+    # offset_fijo_x = -54.0
+    # offset_fijo_y = 2387.20  # Ajusta según tu configuración
+
+    # T[0] += offset_fijo_x
+    # T[1] += offset_fijo_y
 
     print("Matriz de rotación R:\n", R)
     print("Vector de traslación T:\n", T)
@@ -139,7 +197,7 @@ def detectar_objetos():
 
     depth_np_smooth = cv2.medianBlur(depth_np, 5)
 
-    mask = (depth_np_smooth > 700) & (depth_np_smooth < 5000)
+    mask = (depth_np_smooth > 700) & (depth_np_smooth < 5500)
 
     mask_uint8 = (mask.astype(np.uint8)) * 255
     kernel = np.ones((9, 9), np.uint8)
@@ -186,7 +244,7 @@ def detectar_objetos():
             Y = (cY - cy) * Z / fy
 
             p_cam = np.array([X, Y, Z])
-            p_robot = R.dot(p_cam) + T
+            p_robot = R @ p_cam + T.flatten()
             X_r, Y_r, Z_r = p_robot
             W = (w * Z) / fx
             H = (h * Z) / fy
@@ -210,7 +268,7 @@ def detectar_objetos():
             texto = (f"ancho: {X:.2f}\n"
                      f"alto: {Y:.0f}\n"
                      f"Area: {area:.2f}\n"
-                     f"X: {Y_r-ZZZ:.0f} \nY: {X_r:.0f} \nZ: {depth_value:.0f}")
+                     f"X: {X_r:.0f} \nY: {Y_r:.0f} \nZ: {Z_r:.0f}")
             
             put_multiline_text(depth_display_colored, texto, (cX + 10, cY),
                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
@@ -220,9 +278,9 @@ def detectar_objetos():
                     #"yy": float(round(X, 2)),
                     #"xx": float(round(Y + 2387.20, 2)),
                     #"zz": float(round(Z, 2)),
-                    "y": float(round(X_r, 2)),
-                    "x": float(round(Y_r- ZZZ, 2)),
-                    "z": float(round(Z_r, 2)),
+                    "x": float(round(X_r, 2)),
+                    "y": float(round(Y_r-300, 2)),
+                    "z": float(round(Z_r+1850, 2)),
                     #"W": W,
                     #"H": H
                 }

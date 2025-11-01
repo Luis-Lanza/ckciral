@@ -227,18 +227,21 @@ def find_most_similar_group(aspect_ratios, group_size=5):
 
     # Enumerar aspect ratios con índices
     indexed_ratios = list(enumerate(aspect_ratios))
-
+    
     # Probar todas las combinaciones posibles de índices
     for combo in itertools.combinations(indexed_ratios, group_size):
         # Obtener solo los valores
         values = [x[1] for x in combo]
         indices = [x[0] for x in combo]
+        
 
         max_diff = max(values) - min(values)
         if max_diff < min_max_diff:
             min_max_diff = max_diff
             best_group_indices = indices
             best_group_values = values
+    
+    
 
     return best_group_indices,best_group_values
 
@@ -428,18 +431,38 @@ def dividir_mascara(mask_tensor,rgb, min_area=3000):
 
 
 
-def ImgConfirmation(dims, longitud_min, umbral=0.5):
-    if len(dims) != longitud_min:
+def ImgConfirmation(dims, longitud_min, umbral=0.5, tam_min = 110000, tam_max = 220000):
+    if len(dims) < longitud_min:
+        print("LEN DIMSSS:::", len(dims))
         return False
     list_res = []
+    list_size = []
     for (w,h,_,_,_) in dims:
         list_res.append(w/h)
+        list_size.append(w*h)
     for i in range(len(list_res)):
         for j in range(i+1, len(list_res)):
             if abs(list_res[i] - list_res[j]) > umbral:
+                print("ASPECT RATIO =====", abs(list_res[i] - list_res[j]))
                 return False
 
+    for size in list_size:
+        if size < tam_min or size > tam_max:
+            print("SIZE =====", size)
+            return False
+    
+
     return True      
+
+
+def calcular_aspect_ratio(mask: torch.Tensor) -> float:
+    ys, xs = mask.nonzero(as_tuple=True)
+    if len(xs) == 0 or len(ys) == 0:
+        return 0  # máscara vacía
+    width = xs.max().item() - xs.min().item() + 1
+    height = ys.max().item() - ys.min().item() + 1
+    return width / height if height > 0 else 0
+
 
 def segment_all_masks(image_path: str,
                             model,
@@ -463,6 +486,21 @@ def segment_all_masks(image_path: str,
     idxs = np.argsort(areas)[::-1][:top_n]
     mascaras_sort = new_sort_masks(all_masks)
     masks = [m for m in mascaras_sort if m.sum().item()<rango ]
+
+        # Filtro adicional por aspecto
+    min_ar = 0.5
+    max_ar = 2.0
+    masks_filtradas = []
+
+    for m in masks:
+        ar = calcular_aspect_ratio(m)
+        if min_ar <= ar <= max_ar:
+            masks_filtradas.append(m)
+
+    masks = masks_filtradas
+    print(f"[DEBUG] Máscaras tras filtro por aspect ratio: {len(masks)}")
+
+
     distinct_masks = []
     # for i in idxs:
     #     m = all_masks[i]
@@ -492,6 +530,7 @@ def segment_all_masks(image_path: str,
     for m in masks[0:max_masks]:
         mask_total |= m.to(torch.uint8)  # OR bit a bit    
     return mask_total
+
 
 
 def overlay_masks_all(image_path: str,
@@ -552,7 +591,7 @@ def main_centros_pallet(model, cantidad_bolsas, rango):
 
     color = np.array([0, 255, 255], dtype=np.uint8)  # cyan
     # 1) Segment and filter masks
-    masks = segment_all_masks(str(image_path), model, top_n=200, max_masks=cantidad_bolsas, iou_thresh=0.5, rango=rango)
+    masks = segment_all_masks(str(image_path), model, top_n=200, max_masks=cantidad_bolsas, iou_thresh=0.5, rango = 700000)
     #print(f"Found {len(masks)} distinct masks.")
 
     # 2) Overlay masks
@@ -913,12 +952,114 @@ def main_bolsa(model, cantidad_bolsas, umbral_mascaras):
     torch.cuda.empty_cache()
     return dims_final
 
-
-
-def main(model, cantidad_bolsas, umbral_mascaras):
+def main_oregano(model, cantidad_bolsas, umbral_mascaras):
     # Paths and parameters
     #image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
     image_path = r"D:\CIRAL\VISION\ftp_ck\ToF_image\solo_altura_filtrada_colormap.png"
+
+    model_path = r"sam2_t.pt"
+    overlay_out = r"overlay_bolsas.png"
+    centers_out = r"D:/CIRAL/VISION/ftp_ck/images/centros_corregidos.jpg"
+    overlay_out2 = r"D:\CIRAL\VISION\ftp_ck\overlay_bolsas2.png"
+
+    colors = np.array([
+        [231, 169, 39],
+        [  0, 255,   0],
+        [  0,   0, 255],
+        [255, 255,   0],
+        [255,   0, 255],
+        [  0, 255, 255],
+    ], dtype=np.uint8)
+
+#     colors = np.array([
+#     [231, 169, 39],   # naranja
+#     [0, 255, 0],      # verde
+#     [0, 0, 255],      # azul
+#     [255, 255, 0],    # amarillo
+#     [255, 0, 255],    # magenta
+#     [0, 255, 255],    # cyan
+#     [255, 128, 0],    # naranja fuerte
+#     [128, 0, 255],    # púrpura
+#     [0, 128, 255],    # azul celeste
+#     [255, 0, 128],    # rosa fuerte
+#     [0, 255, 128],    # verde menta
+#     [128, 255, 0],    # lima
+#     [255, 64, 64],    # rojo claro
+#     [64, 255, 64],    # verde claro
+#     [64, 64, 255]     # azul claro
+# ], dtype=np.uint8)
+
+    #### NUEVO CODIGO ######
+    color = np.array([255, 255, 255], dtype=np.uint8)
+    masks_all = segment_all_masks(str(image_path), model, top_n=200, max_masks=10, iou_thresh=0.5)
+    #print(f"Found {len(masks)} distinct masks.")
+
+    # 2) Overlay masks
+    overlay_masks_all(str(image_path), masks_all, color, overlay_out2)
+
+    masks = segment_distinct_masks(overlay_out2, model, top_n=20, max_masks=10, cantidad_bolsas=cantidad_bolsas,umbral_mascaras=umbral_mascaras)
+    
+
+    ########################
+    # 1) Segment and filter masks
+    #masks = segment_distinct_masks(image_path, model, top_n=20, max_masks=10, cantidad_bolsas=cantidad_bolsas,umbral_mascaras=umbral_mascaras)
+    #masks = segment_5_bolsas_reales(image_path, model, cantidad_bolsas=cantidad_bolsas)
+
+    mask2 = RestaMascaras(masks)
+    #print("Masks after filtering:", len(mask2), "masks.")
+
+    mascaras_limpias = []
+    for i, mask in enumerate(mask2):  # máscara SAM por objeto
+        mascaras_limpias.append(limpiar_mascara_sam(mask))   
+
+
+    maskHV = all_clean_mask(mascaras_limpias)   
+    #print(f"Found {len(maskHV)} distinct masks.")
+    
+    
+    # 2) Overlay masks
+    overlay_masks(str(overlay_out2), masks, colors, overlay_out)
+
+    # 3) Compute centroids and draw 
+    image_path = r"D:\CIRAL\VISION\ftp_images\imgSend.jpg"
+    #output_path = r"D:\CIRAL\VISION\ftp_ck\centros_y_angulos.jpg"
+    dims = compute_dims_centers_angles(maskHV)
+    dims2 = compute_dims_centers_angles(mascaras_limpias)
+    dims_final = []
+
+    for (w, h, cx, cy, _), (_, _, _, _, angle2) in zip(dims, dims2):
+        dims_final.append((w, h, cx, cy, angle2))
+    
+    img = cv2.imread(str(image_path))
+    for i, (w, h, cx, cy, ang) in enumerate(dims_final, start=1):
+        pt = (int(cx), int(cy))
+        # rectángulo
+        box = cv2.boxPoints(((cx, cy), (w, h), ang))
+        box = np.int32(box)
+        cv2.drawContours(img, [box], 0, (0,255,0), 2)
+        # centro
+        cv2.drawMarker(img, pt, (0,0,255), cv2.MARKER_CROSS, 20, 2)
+        # texto con dimensión
+        cv2.putText(img,
+                    f"{i}: W={w:.0f}px, H={h:.0f}px",
+                    (pt[0]+10, pt[1]-10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6, (255,0,0), 2)
+
+    cv2.imwrite("bolsas_dims.jpg", img)
+    #print("Medidas (px):")
+    # for i, (w,h,_,_,_) in enumerate(dims_final, start=1):
+    #     print(f" Bolsa {i}: ancho={w:.1f}, alto={h:.1f}")
+
+    print("Pipeline complete.")
+
+    torch.cuda.empty_cache()
+    return dims_final
+
+def main(model, cantidad_bolsas, umbral_mascaras):
+    # Paths and parameters
+    image_path = r"D:/CIRAL/VISION/ftp_images/imgSend.jpg"
+    #image_path = r"D:\CIRAL\VISION\ftp_ck\ToF_image\solo_altura_filtrada_colormap.png"
 
     model_path = r"sam2_t.pt"
     overlay_out = r"overlay_bolsas.png"
